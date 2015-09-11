@@ -1,0 +1,115 @@
+#!/bin/sh /etc/rc.common
+# ============================================
+# == Coova Chilli Startup Script =============
+# == Hardware: Ubiquity PicoStation2 =========
+# == Version: 0.1 ============================
+# == Date: 2009-10-22 ========================
+# == Author: Dirk van der Walt ===============
+# ============================================
+
+START=89
+STOP=89
+
+
+. /etc/chilli/functions
+ME="chilli"
+
+config_load()
+{
+	rm -f /etc/chilli/defaults
+	
+	hs_wanif=$(uci get coovachilli.@general[0].hs_wanif)
+	hs_lanif=$(uci get coovachilli.@general[0].hs_lanif)	
+	hs_network=$(uci get coovachilli.@general[0].hs_network)	
+	hs_netmask=$(uci get coovachilli.@general[0].hs_netmask)	
+	hs_uamlisten=$(uci get coovachilli.@general[0].hs_uamlisten)	
+	dns1=$(uci get coovachilli.@tun[0].dns1)
+	dns2=$(uci get coovachilli.@tun[0].dns2)	
+	radiusserver1=$(uci get coovachilli.@radius[0].radiusserver1)
+	radiusserver2=$(uci get coovachilli.@radius[0].radiusserver2) 
+  	radiusnasid=$(uci get coovachilli.@radius[0].radiusnasid)
+      	uamport=$(uci get coovachilli.@uam[0].uamport)
+        radiussecret=$(uci get coovachilli.@radius[0].radiussecret)
+	interval=$(uci get coovachilli.@general[0].interval)
+	uamserver=$(uci get coovachilli.@uam[0].uamserver)
+	radiusauthport=$(uci get coovachilli.@radius[0].radiusauthport)
+	radiusacctport=$(uci get coovachilli.@radius[0].radiusacctport)
+	radiuslocationname=$(uci get coovachilli.@radius[0].radiuslocationname)
+echo "
+HS_WANIF=$hs_wanif
+HS_LANIF=$hs_lanif
+HS_NETWORK=$hs_network
+HS_NETMASK=$hs_netmask
+HS_UAMLISTEN=$hs_uamlisten
+HS_UAMPORT=$uamport
+HS_UAMALLOW=$hs_uamlisten
+
+HS_DNS1=$dns1
+HS_DNS2=$dns2
+
+HS_NASID=$radiusnasid
+HS_RADIUS=$radiusserver1
+HS_RADIUS2=$radiusserver2
+HS_RADSECRET=$radiussecret
+# HS_UAMSECRET=change-me
+# HS_UAMALIASNAME=chilli
+HS_ADMINTERVAL=$interval
+
+HS_UAMSERVER=$uamserver
+HS_UAMFORMAT=http://$HS_UAMSERVER/hotspots/login
+
+HS_TCP_PORTS="80 443 22"
+
+HS_MODE=hotspot
+HS_TYPE=chillispot
+HS_RADAUTH=$radiusauthport
+HS_RADACCT=$radiusacctport
+HS_ADMUSR=chillispot
+HS_ADMPWD=chillispot
+
+HS_LOC_NAME="$radiuslocationname"
+" >> /etc/chilli/defaults
+
+}
+
+
+start() {	
+		config_load	
+        echo start
+        # commands to launch application
+        /sbin/modprobe tun > /dev/null 2>&1
+        echo 1 > /proc/sys/net/ipv4/ip_forward
+        writeconfig
+        radiusconfig
+        iptables -F POSTROUTING -t nat
+        iptables -I POSTROUTING -t nat -o $HS_WANIF -j MASQUERADE
+        ifconfig $HS_LANIF 0.0.0.0
+		
+		/usr/sbin/chilli
+		
+       	if [ "$?" -eq 0 ] ; then
+		logger -s -t  "$ME" "started"
+		else
+			logger -s -t  "$ME" "start exited with non 0 status"
+		fi
+
+
+}
+
+stop() {
+        echo stop
+        killall chilli
+        # commands to kill application
+}
+
+checkrunning(){
+        check=`/bin/pidof chilli`
+        if [ -z $check ]
+        then
+                echo "Chilli not running"
+                chilli
+
+        else
+                echo "Chilli runnig PID: "$check
+        fi
+

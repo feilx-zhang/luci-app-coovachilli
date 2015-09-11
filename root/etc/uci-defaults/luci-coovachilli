@@ -1,0 +1,11 @@
+#!/bin/sh
+
+uci -q batch <<-EOF >/dev/null
+	delete ucitrack.@coovachilli[-1]
+	add ucitrack coovachilli
+	set ucitrack.@coovachilli[-1].init=chilli
+	commit ucitrack
+EOF
+
+rm -f /tmp/luci-indexcache
+exit 0
